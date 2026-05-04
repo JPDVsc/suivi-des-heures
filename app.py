@@ -53,3 +53,45 @@ if 'db' in st.session_state and not st.session_state.db.empty:
     st.download_button("📥 Télécharger l'export Excel (CSV)", csv, f"heures_{mois}_{annee}.csv", "text/csv")
 else:
     st.info("Aucune donnée enregistrée pour le moment.")
+mport streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+
+# Titre de l'application
+st.title("Ma Base de Données Google Sheets")
+
+# Initialisation de la connexion
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- ONGLET 1 : LECTURE ---
+st.subheader("Données actuelles")
+# On lit les données (le cache ttl=0 permet de voir les mises à jour immédiatement)
+df = conn.read(ttl=0)
+st.dataframe(df)
+
+# --- ONGLET 2 : ÉCRITURE (FORMULAIRE) ---
+st.markdown("---")
+st.subheader("Ajouter une nouvelle entrée")
+
+with st.form(key="mon_formulaire"):
+    nom = st.text_input("Nom de l'article")
+    quantite = st.number_input("Quantité", min_value=1)
+    categorie = st.selectbox("Catégorie", ["Électronique", "Maison", "Bureau"])
+    
+    submit_button = st.form_submit_button(label="Enregistrer dans Google Sheets")
+
+    if submit_button:
+        if nom:
+            # 1. Créer une nouvelle ligne sous forme de DataFrame
+            nouvelle_ligne = pd.DataFrame([{"Nom": nom, "Quantité": quantite, "Catégorie": categorie}])
+            
+            # 2. Ajouter la ligne aux données existantes
+            df_final = pd.concat([df, nouvelle_ligne], ignore_index=True)
+            
+            # 3. Mettre à jour la feuille Google Sheet
+            conn.update(data=df_final)
+            
+            st.success("Données enregistrées avec succès !")
+            st.rerun() # Rafraîchit l'app pour afficher la nouvelle ligne
+        else:
+            st.error("Veuillez entrer un nom.")
